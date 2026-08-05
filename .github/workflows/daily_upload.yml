@@ -1,0 +1,66 @@
+name: Daily YouTube Short Upload
+
+on:
+  schedule:
+    # Runs every day at 10:00 UTC
+    - cron: "0 10 * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Run in dry-run validation mode (no YouTube upload or Drive move)"
+        type: boolean
+        required: false
+        default: false
+
+jobs:
+  upload:
+    name: Execute Upload Pipeline
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Restore OAuth credentials & token
+        env:
+          CREDENTIALS_JSON_B64: ${{ secrets.CREDENTIALS_JSON_B64 }}
+          TOKEN_JSON_B64: ${{ secrets.TOKEN_JSON_B64 }}
+        run: |
+          if [ -n "$CREDENTIALS_JSON_B64" ]; then
+            echo "$CREDENTIALS_JSON_B64" | base64 --decode > credentials.json
+          fi
+          if [ -n "$TOKEN_JSON_B64" ]; then
+            echo "$TOKEN_JSON_B64" | base64 --decode > token.json
+          fi
+
+      - name: Run upload pipeline
+        env:
+          GOOGLE_DRIVE_VIDEOS_FOLDER_ID: ${{ secrets.GOOGLE_DRIVE_VIDEOS_FOLDER_ID }}
+          GOOGLE_DRIVE_UPLOADED_FOLDER_ID: ${{ secrets.GOOGLE_DRIVE_UPLOADED_FOLDER_ID }}
+          GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
+          GOOGLE_SHEET_WORKSHEET: ${{ secrets.GOOGLE_SHEET_WORKSHEET }}
+          YOUTUBE_CATEGORY_ID: ${{ secrets.YOUTUBE_CATEGORY_ID }}
+          LOG_LEVEL: "INFO"
+        run: |
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            python -m src.main --dry-run
+          else
+            python -m src.main
+          fi
+
+      - name: Secure cleanup of credentials
+        if: always()
+        run: |
+          rm -f credentials.json token.json
