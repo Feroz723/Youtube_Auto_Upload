@@ -2,8 +2,16 @@ name: Daily YouTube Short Upload
 
 on:
   schedule:
-    # Runs every day at 10:00 UTC
-    - cron: "0 10 * * *"
+    # Note: GitHub Actions uses UTC time. IST is UTC+5:30 (UTC = IST - 5 hours 30 minutes).
+    # Weekdays (Monday–Friday): 7:00 PM IST (19:00 IST) -> 13:30 UTC
+    - cron: "30 13 * * 1-5"
+
+    # Saturday: 11:00 AM IST (11:00 IST) -> 05:30 UTC
+    - cron: "30 5 * * 6"
+
+    # Sunday: 10:00 AM IST (10:00 IST) -> 04:30 UTC
+    - cron: "30 4 * * 0"
+
   workflow_dispatch:
     inputs:
       dry_run:
@@ -11,6 +19,10 @@ on:
         type: boolean
         required: false
         default: false
+
+concurrency:
+  group: youtube-auto-upload
+  cancel-in-progress: false
 
 jobs:
   upload:
